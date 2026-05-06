@@ -1,29 +1,31 @@
 # fan-hotkey-mac
 
-macOS 一键 [Macs Fan Control](https://crystalidea.com/macs-fan-control) 「全速 ↔ 自动」切换 + 自动回切定时器 + 屏幕中央提示。
+[English](README.md) | [中文](README.zh.md)
 
-- **全局快捷键**（默认 ⌃⌥⌘ + 8）切换风扇预设，无需打开 MFC 主窗
-- **自动回切**：切到全速后 N 分钟自动回 Auto，免得跑完任务忘了关
-- **屏幕中央提示**（Hammerspoon `hs.alert`），文字、时长可自定义
-- **SwiftUI 配置 GUI**：Fan Hotkey.app
+One-shot macOS hotkey to toggle [Macs Fan Control](https://crystalidea.com/macs-fan-control) between **Full Blast ↔ Auto**, with an auto-revert timer and a SwiftUI configurator.
 
-> Apple Silicon Mac 验证通过。Macs Fan Control 1.5.21+ 测试通过（依赖 `/minimized` 启动参数）。
+- **Global hotkey** (default ⌃⌥⌘ + 8) flips the fan preset — no MFC window ever flashes
+- **Auto-revert timer**: after switching to Full Blast, automatically fall back to Auto in N minutes so you don't leave fans screaming after the workload is done
+- Customizable on-screen alert text and duration (Hammerspoon `hs.alert`)
+- SwiftUI configurator app (`Fan Hotkey.app`) — Settings / Status / About tabs
 
-## 工作原理
+> Verified on Apple Silicon. Tested with Macs Fan Control 1.5.21+ (relies on its `/minimized` launch flag).
 
-写 `defaults` 把 MFC 的 `ActivePreset` 切到 `Predefined:1`（Full Blast）或 `Predefined:0`（Auto），然后退出 MFC 并以 `/minimized` 参数后台重启 — 整个过程无窗口闪现。
+## How it works
 
-| 组件 | 作用 |
+Writes MFC's `ActivePreset` via `defaults` to either `Predefined:1` (Full Blast) or `Predefined:0` (Auto), then quits MFC and re-launches it in the background with `/minimized` — the whole switch is silent and window-less.
+
+| Component | Role |
 |------|------|
-| `fan-hotkey.lua` | Hammerspoon 主逻辑：快捷键、切换、自动回切定时器 |
-| `Fan Hotkey.app` (SwiftUI) | 配置 GUI：所有可调项、状态检测 |
-| `~/.hammerspoon/fan-hotkey-config.json` | 单一配置源，App 写入，lua 读取 |
+| `fan-hotkey.lua` | Hammerspoon module — hotkey, toggle logic, auto-revert timer |
+| `Fan Hotkey.app` (SwiftUI) | Configurator GUI — all editable options + status checks |
+| `~/.hammerspoon/fan-hotkey-config.json` | Single source of truth — written by the app, read by the lua |
 
-## 安装
+## Install
 
-依赖：
+Requires:
 - [Hammerspoon](https://www.hammerspoon.org/)
-- [Macs Fan Control](https://crystalidea.com/macs-fan-control)（`brew install --cask macs-fan-control`）
+- [Macs Fan Control](https://crystalidea.com/macs-fan-control) (`brew install --cask macs-fan-control`)
 - Xcode Command Line Tools (`xcode-select --install`)
 
 ```bash
@@ -32,27 +34,29 @@ cd fan-hotkey-mac
 ./install.sh
 ```
 
-安装脚本会：
-1. 拷贝 `fan-hotkey.lua` 到 `~/.hammerspoon/`
-2. 在 `~/.hammerspoon/init.lua` 末尾追加 `require("fan-hotkey")`
-3. 编译 `Fan Hotkey.app` 装到 `/Applications/`
-4. 重载 Hammerspoon
+The installer will:
+1. Copy `fan-hotkey.lua` to `~/.hammerspoon/`
+2. Append `require("fan-hotkey")` to `~/.hammerspoon/init.lua`
+3. Build `Fan Hotkey.app` and install it to `/Applications/`
+4. Reload Hammerspoon
 
-## 使用
+Or grab the prebuilt `.dmg` from [Releases](https://github.com/KrisWonka/fan-hotkey-mac/releases) and drag the app into Applications, then run `./install.sh` to wire up the Hammerspoon side.
 
-### 快捷键
-默认 **`⌃⌥⌘ + 8`** 切换全速 / Auto（在 GUI Settings 里可改）。
+## Usage
 
-### 配置 GUI（**Fan Hotkey.app**）
-Spotlight 搜「Fan Hotkey」打开。三个标签：
+### Hotkey
+Default **`⌃⌥⌘ + 8`** toggles Full Blast / Auto (rebindable in the GUI).
 
-- **Settings**：快捷键、提示文字、显示时长、自动回切倒计时
-- **Status**：实时显示 MFC 是否安装、Hammerspoon 是否运行、当前预设
-- **About**：仓库链接
+### Configurator (`Fan Hotkey.app`)
+Open via Spotlight. Three tabs:
 
-保存后自动重载 Hammerspoon。
+- **Settings**: hotkey, alert text, alert duration, auto-revert countdown
+- **Status**: live check of MFC install, Hammerspoon process, current preset
+- **About**: repo link
 
-## 卸载
+Hits "Save & Reload" to persist the config and bounce Hammerspoon.
+
+## Uninstall
 
 ```bash
 ./uninstall.sh
