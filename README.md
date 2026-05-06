@@ -23,12 +23,12 @@ Writes MFC's `ActivePreset` via `defaults` to either `Predefined:1` (Full Blast)
 
 ## Install
 
-### Fresh-Mac one-liner (also installs [clamshell-mode-mac](https://github.com/KrisWonka/clamshell-mode-mac))
+### Fresh-Mac one-liner
 
-Bootstraps Xcode CLT, Homebrew, Hammerspoon, Macs Fan Control, and both projects:
+Bootstraps everything this project needs from scratch — Xcode CLT, Homebrew, Hammerspoon, Macs Fan Control, then clones and installs:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/KrisWonka/clamshell-mode-mac/main/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/KrisWonka/fan-hotkey-mac/main/bootstrap.sh | bash
 ```
 
 ### Manual
