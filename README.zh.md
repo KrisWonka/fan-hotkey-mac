@@ -23,6 +23,16 @@ macOS 一键 [Macs Fan Control](https://crystalidea.com/macs-fan-control) 「全
 
 ## 安装
 
+### 全新 Mac 一键装（同时装上 [clamshell-mode-mac](https://github.com/KrisWonka/clamshell-mode-mac)）
+
+把 Xcode CLT、Homebrew、Hammerspoon、Macs Fan Control 和两个项目一次性装好：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/KrisWonka/clamshell-mode-mac/main/bootstrap.sh | bash
+```
+
+### 手动
+
 依赖：
 - [Hammerspoon](https://www.hammerspoon.org/)
 - [Macs Fan Control](https://crystalidea.com/macs-fan-control)（`brew install --cask macs-fan-control`）
