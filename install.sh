@@ -9,6 +9,25 @@ INIT_LUA="$HS_DIR/init.lua"
 
 mkdir -p "$HS_DIR"
 
+# ---- 依赖：Macs Fan Control（fan-hotkey 的核心依赖）----
+if [ ! -d "/Applications/Macs Fan Control.app" ]; then
+  if command -v brew >/dev/null 2>&1; then
+    echo "→ 未检测到 Macs Fan Control，用 brew 自动安装…"
+    brew install --cask macs-fan-control
+  else
+    echo "✗ 未检测到 Macs Fan Control，也没有 brew。" >&2
+    echo "  请先装 Homebrew，再 brew install --cask macs-fan-control，" >&2
+    echo "  或手动从 https://crystalidea.com/macs-fan-control 下载安装。" >&2
+    exit 1
+  fi
+fi
+
+# ---- 依赖：Hammerspoon ----
+if [ ! -d "/Applications/Hammerspoon.app" ]; then
+  echo "✗ 未检测到 Hammerspoon。请先 brew install --cask hammerspoon。" >&2
+  exit 1
+fi
+
 echo "→ 复制 fan-hotkey.lua"
 cp fan-hotkey.lua "$HS_DIR/fan-hotkey.lua"
 
