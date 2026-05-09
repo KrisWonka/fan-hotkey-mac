@@ -17,7 +17,7 @@ read -p "确定卸载 fan-hotkey-mac？(y/N) " ans
 
 # 1. ~/.hammerspoon 资产
 bold "清理 $HS_DIR/…"
-for f in fan-hotkey.lua fan-hotkey-config.json; do
+for f in fan-hotkey.lua fan-hotkey-config.json readtemp; do
   if [ -e "$HS_DIR/$f" ]; then
     rm -f "$HS_DIR/$f"
     green "  rm $f"

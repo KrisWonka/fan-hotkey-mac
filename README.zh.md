@@ -2,23 +2,28 @@
 
 [English](README.md) | [中文](README.zh.md)
 
-macOS 一键 [Macs Fan Control](https://crystalidea.com/macs-fan-control) 「全速 ↔ 自动」切换 + 自动回切定时器 + 屏幕中央提示。
+macOS 全局快捷键，按用户自定义的「档位列表」循环切换 [Macs Fan Control](https://crystalidea.com/macs-fan-control) — 全程后台无窗口闪现。
 
-- **全局快捷键**（默认 ⌃⌥⌘ + 8）切换风扇预设，无需打开 MFC 主窗
-- **自动回切**：切到全速后 N 分钟自动回 Auto，免得跑完任务忘了关
-- **屏幕中央提示**（Hammerspoon `hs.alert`），文字、时长可自定义
+- **可配置档位列表** — 增删、用 ↑↓ 排序；每档可以是：
+  - **Auto** — MFC 默认温控曲线
+  - **Full Blast** — 全速（可设 N 分钟自动回 Auto）
+  - **Cooldown** — 全速直到平均 CPU 温度降到目标值（默认 40°C）后自动回 Auto
+- **全局快捷键**（默认 ⌃⌥⌘ + 8）按一次前进一档
+- **每档独立参数**：列表里点 ▶ 三角展开能改名、调这一档专属的参数（Cooldown 目标温度/轮询、Full Blast 回切倒计时等）
+- **Apple Silicon 温度读取**：自带一个小 Swift 工具 `readtemp`，走和 MFC / Stats / iStatistica 同一个私有 `IOHIDEventSystemClient` API
 - **SwiftUI 配置 GUI**：Fan Hotkey.app
 
 > Apple Silicon Mac 验证通过。Macs Fan Control 1.5.21+ 测试通过（依赖 `/minimized` 启动参数）。
 
 ## 工作原理
 
-写 `defaults` 把 MFC 的 `ActivePreset` 切到 `Predefined:1`（Full Blast）或 `Predefined:0`（Auto），然后退出 MFC 并以 `/minimized` 参数后台重启 — 整个过程无窗口闪现。
+写 `defaults` 把 MFC 的 `ActivePreset` 切到 `Predefined:1`（Full Blast）或 `Predefined:0`（Auto），然后退出 MFC 并以 `/minimized` 参数后台重启 — 整个过程无窗口闪现。Cooldown 档位由 `readtemp` 轮询 CPU 平均温度触发回切。
 
 | 组件 | 作用 |
 |------|------|
-| `fan-hotkey.lua` | Hammerspoon 主逻辑：快捷键、切换、自动回切定时器 |
-| `Fan Hotkey.app` (SwiftUI) | 配置 GUI：所有可调项、状态检测 |
+| `fan-hotkey.lua` | Hammerspoon 主逻辑：快捷键、档位列表状态机、Cooldown 轮询 |
+| `readtemp` (Swift) | 读 Apple Silicon CPU 温度（IOHIDEventSystemClient） |
+| `Fan Hotkey.app` (SwiftUI) | 配置 GUI：档位列表编辑器 + 每档可展开参数 |
 | `~/.hammerspoon/fan-hotkey-config.json` | 单一配置源，App 写入，lua 读取 |
 
 ## 安装
@@ -45,20 +50,24 @@ cd fan-hotkey-mac
 ```
 
 安装脚本会：
-1. 拷贝 `fan-hotkey.lua` 到 `~/.hammerspoon/`
-2. 在 `~/.hammerspoon/init.lua` 末尾追加 `require("fan-hotkey")`
-3. 编译 `Fan Hotkey.app` 装到 `/Applications/`
-4. 重载 Hammerspoon
+1. 编译 `readtemp`（Apple Silicon 温度读取）到 `~/.hammerspoon/`
+2. 拷贝 `fan-hotkey.lua` 到 `~/.hammerspoon/`
+3. 在 `~/.hammerspoon/init.lua` 末尾追加 `require("fan-hotkey")`
+4. 编译 `Fan Hotkey.app` 装到 `/Applications/`
+5. 重载 Hammerspoon
 
 ## 使用
 
 ### 快捷键
-默认 **`⌃⌥⌘ + 8`** 切换全速 / Auto（在 GUI Settings 里可改）。
+默认 **`⌃⌥⌘ + 8`** 在档位列表里前进一档（GUI 里可改）。默认列表：Auto → Full Blast → Cooldown → Auto。
 
 ### 配置 GUI（**Fan Hotkey.app**）
 Spotlight 搜「Fan Hotkey」打开。三个标签：
 
-- **Settings**：快捷键、提示文字、显示时长、自动回切倒计时
+- **Settings**：
+  - **循环档位**：增删（Auto / Full Blast / Cooldown）、↑↓ 排序；点 ▶ 展开改名 / 调本档参数
+  - **快捷键**：组合键、启用开关
+  - **提示**：屏幕中央提示开关、Cooldown 完成文字、显示时长
 - **Status**：实时显示 MFC 是否安装、Hammerspoon 是否运行、当前预设
 - **About**：仓库链接
 

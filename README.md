@@ -2,11 +2,15 @@
 
 [English](README.md) | [中文](README.zh.md)
 
-One-shot macOS hotkey to toggle [Macs Fan Control](https://crystalidea.com/macs-fan-control) between **Full Blast ↔ Auto**, with an auto-revert timer and a SwiftUI configurator.
+macOS global hotkey that cycles [Macs Fan Control](https://crystalidea.com/macs-fan-control) through a user-defined list of fan modes — no MFC window ever flashes.
 
-- **Global hotkey** (default ⌃⌥⌘ + 8) flips the fan preset — no MFC window ever flashes
-- **Auto-revert timer**: after switching to Full Blast, automatically fall back to Auto in N minutes so you don't leave fans screaming after the workload is done
-- Customizable on-screen alert text and duration (Hammerspoon `hs.alert`)
+- **Configurable cycle list** — add / remove / reorder steps. Each step is one of:
+  - **Auto** — MFC's default temperature curve
+  - **Full Blast** — all fans at max RPM (with optional N-minute auto-revert)
+  - **Cooldown** — full blast until average CPU temp drops below a threshold (default 40°C), then auto back to Auto
+- **Global hotkey** (default ⌃⌥⌘ + 8) advances the cycle one step
+- **Per-step parameters**: each cycle entry can be expanded inline to rename it and tune its own thresholds (cooldown target temp / poll interval, Full Blast revert countdown, etc.)
+- **Apple Silicon temperature reading** via a tiny Swift helper (`readtemp`) using the same private `IOHIDEventSystemClient` API that Macs Fan Control / Stats / iStatistica use
 - SwiftUI configurator app (`Fan Hotkey.app`) — Settings / Status / About tabs
 
 > Verified on Apple Silicon. Tested with Macs Fan Control 1.5.21+ (relies on its `/minimized` launch flag).
@@ -17,8 +21,9 @@ Writes MFC's `ActivePreset` via `defaults` to either `Predefined:1` (Full Blast)
 
 | Component | Role |
 |------|------|
-| `fan-hotkey.lua` | Hammerspoon module — hotkey, toggle logic, auto-revert timer |
-| `Fan Hotkey.app` (SwiftUI) | Configurator GUI — all editable options + status checks |
+| `fan-hotkey.lua` | Hammerspoon module — hotkey, cycle-list state machine, cooldown polling |
+| `readtemp` (Swift) | Reads Apple Silicon CPU temperature via `IOHIDEventSystemClient` |
+| `Fan Hotkey.app` (SwiftUI) | Configurator GUI — cycle-list editor + per-step expandable params |
 | `~/.hammerspoon/fan-hotkey-config.json` | Single source of truth — written by the app, read by the lua |
 
 ## Install
@@ -45,26 +50,30 @@ cd fan-hotkey-mac
 ```
 
 The installer will:
-1. Copy `fan-hotkey.lua` to `~/.hammerspoon/`
-2. Append `require("fan-hotkey")` to `~/.hammerspoon/init.lua`
-3. Build `Fan Hotkey.app` and install it to `/Applications/`
-4. Reload Hammerspoon
+1. Compile `readtemp` (Apple Silicon temperature reader) into `~/.hammerspoon/`
+2. Copy `fan-hotkey.lua` to `~/.hammerspoon/`
+3. Append `require("fan-hotkey")` to `~/.hammerspoon/init.lua`
+4. Build `Fan Hotkey.app` and install it to `/Applications/`
+5. Reload Hammerspoon
 
 Or grab the prebuilt `.dmg` from [Releases](https://github.com/KrisWonka/fan-hotkey-mac/releases) and drag the app into Applications, then run `./install.sh` to wire up the Hammerspoon side.
 
 ## Usage
 
 ### Hotkey
-Default **`⌃⌥⌘ + 8`** toggles Full Blast / Auto (rebindable in the GUI).
+Default **`⌃⌥⌘ + 8`** advances one step in your cycle list (rebindable in the GUI). Default cycle: Auto → Full Blast → Cooldown → Auto.
 
 ### Configurator (`Fan Hotkey.app`)
 Open via Spotlight. Three tabs:
 
-- **Settings**: hotkey, alert text, alert duration, auto-revert countdown
+- **Settings**:
+  - **Cycle list** — add (Auto / Full Blast / Cooldown), delete, reorder with ↑↓; click ▶ to expand a step and rename it / tune its params
+  - **Hotkey** — global hotkey + enable toggle
+  - **Alerts** — on-screen prompt toggle, cooldown-done text, display duration
 - **Status**: live check of MFC install, Hammerspoon process, current preset
 - **About**: repo link
 
-Hits "Save & Reload" to persist the config and bounce Hammerspoon.
+Hit "Save & Reload" to persist and bounce Hammerspoon.
 
 ## Uninstall
 

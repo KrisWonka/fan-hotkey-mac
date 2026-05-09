@@ -1,23 +1,25 @@
 -- ===== fan-hotkey-mac =====
--- 一键 Macs Fan Control「全速 ↔ 自动」+ 自动回切
+-- 按用户自定义的「档位列表」循环切换 Macs Fan Control
 -- https://github.com/KrisWonka/fan-hotkey-mac
 
 local M = {}
 
 local HS_DIR = os.getenv("HOME") .. "/.hammerspoon"
 local CONFIG_PATH = HS_DIR .. "/fan-hotkey-config.json"
+local READTEMP_BIN = HS_DIR .. "/readtemp"
 
--- 默认配置（被 fan-hotkey-config.json 覆盖；JSON 是 FanHotkey.app 写的）
 local cfg = {
   hotkeyEnabled = true,
   hotkeyMods = { "ctrl", "alt", "cmd" },
   hotkeyKey = "8",
   alertEnabled = true,
-  alertAuto = "Fan: Auto",
-  alertFullBlast = "Fan: Full Blast",
+  alertCooldownDone = "Cooldown done ✓",
   alertDuration = 1.2,
-  autoRevertEnabled = false,
-  autoRevertSec = 600,
+  cycleSteps = {
+    { type = "auto" },
+    { type = "fullBlast", autoRevertEnabled = false, autoRevertSec = 600 },
+    { type = "cooldown",  cooldownTargetTemp = 40, cooldownPollSec = 3 },
+  },
 }
 
 local function loadConfig()
@@ -31,15 +33,8 @@ end
 loadConfig()
 
 local autoRevertTimer = nil
-
-local function readActivePreset()
-  local out = hs.execute("/usr/bin/defaults read com.crystalidea.macsfancontrol ActivePreset 2>/dev/null") or ""
-  return out:gsub("%s+", "")
-end
-
-local function isFullBlast()
-  return readActivePreset() == "Predefined:1"
-end
+local cooldownTimer   = nil
+local cycleIndex      = 0
 
 local function applyPreset(preset)
   hs.execute(string.format([[
@@ -53,42 +48,97 @@ local function applyPreset(preset)
   ]], preset))
 end
 
+local function readTemp()
+  local f = io.popen(READTEMP_BIN .. " 2>/dev/null")
+  if not f then return nil end
+  local out = f:read("*a"); f:close()
+  return tonumber((out or ""):match("[%d%.]+"))
+end
+
+local function alert(text)
+  if cfg.alertEnabled then hs.alert.show(text, cfg.alertDuration) end
+end
+
+local function defaultName(t)
+  if t == "auto"      then return "Auto"
+  elseif t == "fullBlast" then return "Full Blast"
+  elseif t == "cooldown"  then return "Cooldown"
+  end
+  return t or "?"
+end
+
+local function effectiveName(step)
+  local n = step.name
+  if type(n) == "string" then
+    n = n:gsub("^%s*(.-)%s*$", "%1")  -- trim
+    if #n > 0 then return n end
+  end
+  return defaultName(step.type)
+end
+
 local function cancelAutoRevert()
   if autoRevertTimer then autoRevertTimer:stop(); autoRevertTimer = nil end
 end
 
-local function scheduleAutoRevert()
+local function cancelCooldown()
+  if cooldownTimer then cooldownTimer:stop(); cooldownTimer = nil end
+end
+
+local function scheduleAutoRevert(step)
   cancelAutoRevert()
-  if not cfg.autoRevertEnabled then return end
-  autoRevertTimer = hs.timer.doAfter(cfg.autoRevertSec, function()
+  if not step.autoRevertEnabled then return end
+  local sec = step.autoRevertSec or 600
+  autoRevertTimer = hs.timer.doAfter(sec, function()
     autoRevertTimer = nil
-    if isFullBlast() then
+    applyPreset("Predefined:0")
+    alert(defaultName("auto") .. " ⏱")
+  end)
+end
+
+local function startCooldown(step)
+  cancelCooldown()
+  applyPreset("Predefined:1")
+  alert(effectiveName(step))
+  local target = step.cooldownTargetTemp or 40
+  local poll   = step.cooldownPollSec or 3
+  cooldownTimer = hs.timer.doEvery(poll, function()
+    local t = readTemp()
+    if t and t < target then
+      cancelCooldown()
       applyPreset("Predefined:0")
-      if cfg.alertEnabled then
-        hs.alert.show(cfg.alertAuto .. " ⏱", cfg.alertDuration)
-      end
+      alert(cfg.alertCooldownDone)
     end
   end)
 end
 
-local function toggleFan()
-  if isFullBlast() then
+local function applyStep(step)
+  cancelAutoRevert()
+  cancelCooldown()
+  local t = step and step.type
+  if t == "auto" then
     applyPreset("Predefined:0")
-    cancelAutoRevert()
-    if cfg.alertEnabled then
-      hs.alert.show(cfg.alertAuto, cfg.alertDuration)
-    end
-  else
+    alert(effectiveName(step))
+  elseif t == "fullBlast" then
     applyPreset("Predefined:1")
-    scheduleAutoRevert()
-    if cfg.alertEnabled then
-      hs.alert.show(cfg.alertFullBlast, cfg.alertDuration)
-    end
+    scheduleAutoRevert(step)
+    alert(effectiveName(step))
+  elseif t == "cooldown" then
+    startCooldown(step)
   end
 end
 
+local function cycle()
+  local steps = cfg.cycleSteps or {}
+  if #steps == 0 then
+    alert("循环列表为空")
+    return
+  end
+  cycleIndex = cycleIndex % #steps + 1
+  applyStep(steps[cycleIndex])
+end
+
 if cfg.hotkeyEnabled and cfg.hotkeyKey and #cfg.hotkeyMods > 0 then
-  hs.hotkey.bind(cfg.hotkeyMods, cfg.hotkeyKey, toggleFan)
+  hs.hotkey.bind(cfg.hotkeyMods, cfg.hotkeyKey, cycle)
 end
 
 return M
