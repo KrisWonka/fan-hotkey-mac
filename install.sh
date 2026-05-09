@@ -31,14 +31,6 @@ fi
 echo "→ 复制 fan-hotkey.lua"
 cp fan-hotkey.lua "$HS_DIR/fan-hotkey.lua"
 
-# ---- 编译 readtemp（Apple Silicon 温度读取，cooldown 模式依赖）----
-if ! command -v swiftc >/dev/null 2>&1; then
-  echo "✗ 未检测到 swiftc。请装 Xcode Command Line Tools：xcode-select --install" >&2
-  exit 1
-fi
-echo "→ 编译 readtemp"
-swiftc readtemp.swift -framework IOKit -O -o "$HS_DIR/readtemp"
-
 # 在 init.lua 里加 require（如果还没加）
 if [ -f "$INIT_LUA" ] && grep -q 'require("fan-hotkey")' "$INIT_LUA"; then
   echo "→ init.lua 里已经有 require(\"fan-hotkey\")，跳过"

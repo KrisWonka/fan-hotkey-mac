@@ -3,7 +3,6 @@ import SwiftUI
 struct SettingsView: View {
     @Binding var config: FanHotkeyConfig
     @State private var saveStatus: SaveStatus = .idle
-    @State private var expandedStepIDs: Set<UUID> = []
 
     enum SaveStatus { case idle, saving, saved, error(String) }
 
@@ -21,32 +20,53 @@ struct SettingsView: View {
                     .foregroundColor(.secondary)
             }
 
-            Section("循环档位（按 \(hotkeyDescription) 在档位间循环）") {
-                cycleStepsList
-                addStepMenu
-                Text("点档位左侧 ▶ 三角展开改名 / 调参数。Cooldown 档：全速直到平均温度降到目标值后自动回 Auto。Full Blast 档：可设 N 分钟后自动回 Auto。")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            }
-
-            Section("提示") {
-                Toggle("启用屏幕中央提示", isOn: $config.alertEnabled)
+            Section("屏幕中央提示") {
+                Toggle("启用提示", isOn: $config.alertEnabled)
                 HStack {
-                    Text("Cooldown 结束文字")
-                        .frame(width: 130, alignment: .leading)
-                    TextField("Cooldown done ✓", text: $config.alertCooldownDone)
+                    Text("Auto 文字")
+                        .frame(width: 100, alignment: .leading)
+                    TextField("Fan: Auto", text: $config.alertAuto)
+                        .textFieldStyle(.roundedBorder)
+                }
+                .disabled(!config.alertEnabled)
+                HStack {
+                    Text("全速文字")
+                        .frame(width: 100, alignment: .leading)
+                    TextField("Fan: Full Blast", text: $config.alertFullBlast)
                         .textFieldStyle(.roundedBorder)
                 }
                 .disabled(!config.alertEnabled)
                 HStack {
                     Text("显示时长")
-                        .frame(width: 130, alignment: .leading)
+                        .frame(width: 100, alignment: .leading)
                     Slider(value: $config.alertDuration, in: 0.3...3.0, step: 0.1)
                     Text("\(String(format: "%.1f", config.alertDuration)) 秒")
                         .frame(width: 60, alignment: .trailing)
                         .font(.system(.body, design: .monospaced))
                 }
                 .disabled(!config.alertEnabled)
+            }
+
+            Section("自动回切") {
+                Toggle("切到全速后自动回 Auto", isOn: $config.autoRevertEnabled)
+                HStack {
+                    Text("回切倒计时")
+                        .frame(width: 100, alignment: .leading)
+                    Slider(
+                        value: Binding(
+                            get: { Double(config.autoRevertSec) / 60.0 },
+                            set: { config.autoRevertSec = Int($0 * 60) }
+                        ),
+                        in: 1...60, step: 1
+                    )
+                    Text("\(config.autoRevertSec / 60) 分钟")
+                        .frame(width: 80, alignment: .trailing)
+                        .font(.system(.body, design: .monospaced))
+                }
+                .disabled(!config.autoRevertEnabled)
+                Text("适合短时高负载：跑测试 / 编译 / 烤机时切到全速，倒计时一到自动回 Auto，免得忘了。")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
         }
         .formStyle(.grouped)
@@ -60,178 +80,6 @@ struct SettingsView: View {
                 }
             }
         }
-    }
-
-    @ViewBuilder
-    private var cycleStepsList: some View {
-        if config.cycleSteps.isEmpty {
-            Text("（空 — 至少加一档才能使用快捷键）")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        } else {
-            VStack(spacing: 6) {
-                ForEach(config.cycleSteps.indices, id: \.self) { idx in
-                    cycleStepCard(idx: idx)
-                }
-            }
-        }
-    }
-
-    private func cycleStepCard(idx: Int) -> some View {
-        let stepBinding = $config.cycleSteps[idx]
-        let step = config.cycleSteps[idx]
-        let isExpanded = Binding<Bool>(
-            get: { expandedStepIDs.contains(step.id) },
-            set: { v in
-                if v { expandedStepIDs.insert(step.id) } else { expandedStepIDs.remove(step.id) }
-            }
-        )
-
-        return VStack(spacing: 0) {
-            DisclosureGroup(isExpanded: isExpanded) {
-                stepDetails(idx: idx, step: stepBinding)
-                    .padding(.top, 8)
-                    .padding(.horizontal, 4)
-                    .padding(.bottom, 4)
-            } label: {
-                HStack(spacing: 8) {
-                    Text("\(idx + 1).")
-                        .font(.system(.body, design: .monospaced))
-                        .foregroundColor(.secondary)
-                        .frame(width: 22, alignment: .trailing)
-                    Image(systemName: step.type.icon)
-                        .frame(width: 22)
-                        .foregroundColor(.accentColor)
-                    Text(step.effectiveName)
-                        .font(.body)
-                    if !step.name.trimmingCharacters(in: .whitespaces).isEmpty {
-                        Text("(\(step.type.displayName))")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                    Spacer()
-                    rowButtons(idx: idx)
-                }
-            }
-            .padding(.horizontal, 10)
-            .padding(.vertical, 6)
-        }
-        .background(
-            RoundedRectangle(cornerRadius: 8)
-                .fill(Color.gray.opacity(0.08))
-        )
-    }
-
-    private func rowButtons(idx: Int) -> some View {
-        HStack(spacing: 4) {
-            Button {
-                guard idx > 0 else { return }
-                config.cycleSteps.swapAt(idx, idx - 1)
-            } label: { Image(systemName: "arrow.up") }
-                .buttonStyle(.borderless)
-                .disabled(idx == 0)
-                .help("上移")
-
-            Button {
-                guard idx < config.cycleSteps.count - 1 else { return }
-                config.cycleSteps.swapAt(idx, idx + 1)
-            } label: { Image(systemName: "arrow.down") }
-                .buttonStyle(.borderless)
-                .disabled(idx == config.cycleSteps.count - 1)
-                .help("下移")
-
-            Button {
-                let removed = config.cycleSteps.remove(at: idx)
-                expandedStepIDs.remove(removed.id)
-            } label: {
-                Image(systemName: "minus.circle.fill")
-                    .foregroundColor(.red.opacity(0.75))
-            }
-            .buttonStyle(.borderless)
-            .help("删除")
-        }
-    }
-
-    @ViewBuilder
-    private func stepDetails(idx: Int, step: Binding<CycleStep>) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("名字")
-                    .frame(width: 80, alignment: .leading)
-                TextField(step.wrappedValue.type.displayName, text: step.name)
-                    .textFieldStyle(.roundedBorder)
-            }
-
-            switch step.wrappedValue.type {
-            case .auto:
-                Text("Auto 档无额外参数 — 等于 MFC 系统默认温控曲线")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-            case .fullBlast:
-                Toggle("到点自动回 Auto", isOn: step.autoRevertEnabled)
-                HStack {
-                    Text("回切倒计时")
-                        .frame(width: 80, alignment: .leading)
-                    Slider(
-                        value: Binding(
-                            get: { Double(step.wrappedValue.autoRevertSec) / 60.0 },
-                            set: { step.wrappedValue.autoRevertSec = Int($0 * 60) }
-                        ),
-                        in: 1...60, step: 1
-                    )
-                    Text("\(step.wrappedValue.autoRevertSec / 60) 分钟")
-                        .frame(width: 60, alignment: .trailing)
-                        .font(.system(.body, design: .monospaced))
-                }
-                .disabled(!step.wrappedValue.autoRevertEnabled)
-            case .cooldown:
-                HStack {
-                    Text("目标温度")
-                        .frame(width: 80, alignment: .leading)
-                    Slider(value: step.cooldownTargetTemp, in: 30...70, step: 1)
-                    Text("\(Int(step.wrappedValue.cooldownTargetTemp)) °C")
-                        .frame(width: 60, alignment: .trailing)
-                        .font(.system(.body, design: .monospaced))
-                }
-                HStack {
-                    Text("轮询间隔")
-                        .frame(width: 80, alignment: .leading)
-                    Slider(value: step.cooldownPollSec, in: 1...30, step: 1)
-                    Text("\(Int(step.wrappedValue.cooldownPollSec)) 秒")
-                        .frame(width: 60, alignment: .trailing)
-                        .font(.system(.body, design: .monospaced))
-                }
-            }
-        }
-    }
-
-    private var addStepMenu: some View {
-        HStack {
-            Menu {
-                ForEach(CycleStepType.allCases) { t in
-                    Button {
-                        let new = CycleStep(type: t)
-                        config.cycleSteps.append(new)
-                        expandedStepIDs.insert(new.id)
-                    } label: {
-                        Label(t.displayName, systemImage: t.icon)
-                    }
-                }
-            } label: {
-                Label("添加档位", systemImage: "plus")
-            }
-            .frame(maxWidth: 140)
-            Spacer()
-            Text("用 ↑↓ 调整顺序")
-                .font(.caption)
-                .foregroundColor(.secondary)
-        }
-    }
-
-    private var hotkeyDescription: String {
-        let modSyms = ["ctrl": "⌃", "alt": "⌥", "shift": "⇧", "cmd": "⌘"]
-        let mods = config.hotkeyMods.compactMap { modSyms[$0] }.joined()
-        return "\(mods)\(config.hotkeyKey.uppercased())"
     }
 
     @ViewBuilder

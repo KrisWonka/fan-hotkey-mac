@@ -1,39 +1,44 @@
 # fan-hotkey-mac
 
+> 🪦 **This repo is the historical Macs Fan Control–era version (single ⌃⌥⌘+8 toggle between Auto and Full Blast).**
+>
+> The successor — with multi-segment fan curves, named profiles (Silence / Performance / Turbo), and a hotkey that cycles through them — has moved to a new project that pairs with [TG Pro](https://www.tunabellysoftware.com/tgpro/) instead (TG Pro has a properly Apple-Developer-signed SMC helper that works on Apple Silicon).
+>
+> **👉 Use [tgpro-hotkey-mac](https://github.com/KrisWonka/tgpro-hotkey-mac) for new installs.**
+>
+> This repo is left online for reference; it still works on Macs Fan Control, but won't get further updates.
+
+---
+
 [English](README.md) | [中文](README.zh.md)
 
-macOS global hotkey that cycles [Macs Fan Control](https://crystalidea.com/macs-fan-control) through a user-defined list of fan modes — no MFC window ever flashes.
+One-shot macOS hotkey to toggle [Macs Fan Control](https://crystalidea.com/macs-fan-control) between **Full Blast ↔ Auto**, with an auto-revert timer and a SwiftUI configurator.
 
-- **Configurable cycle list** — add / remove / reorder steps. Each step is one of:
-  - **Auto** — MFC's default temperature curve
-  - **Full Blast** — all fans at max RPM (with optional N-minute auto-revert)
-  - **Cooldown** — full blast until average CPU temp drops below a threshold (default 40°C), then auto back to Auto
-- **Global hotkey** (default ⌃⌥⌘ + 8) advances the cycle one step
-- **Per-step parameters**: each cycle entry can be expanded inline to rename it and tune its own thresholds (cooldown target temp / poll interval, Full Blast revert countdown, etc.)
-- **Apple Silicon temperature reading** via a tiny Swift helper (`readtemp`) using the same private `IOHIDEventSystemClient` API that Macs Fan Control / Stats / iStatistica use
+- **Global hotkey** (default ⌃⌥⌘ + 8) flips the fan preset — no MFC window ever flashes
+- **Auto-revert timer**: after switching to Full Blast, automatically fall back to Auto in N minutes so you don't leave fans screaming after the workload is done
+- Customizable on-screen alert text and duration (Hammerspoon `hs.alert`)
 - SwiftUI configurator app (`Fan Hotkey.app`) — Settings / Status / About tabs
 
 > Verified on Apple Silicon. Tested with Macs Fan Control 1.5.21+ (relies on its `/minimized` launch flag).
 
 ## How it works
 
-Writes MFC's `ActivePreset` via `defaults` to either `Predefined:1` (Full Blast) or `Predefined:0` (Auto), then quits MFC and re-launches it in the background with `/minimized` — the whole switch is silent and window-less. Cooldown steps additionally poll `readtemp` to know when to drop back to Auto.
+Writes MFC's `ActivePreset` via `defaults` to either `Predefined:1` (Full Blast) or `Predefined:0` (Auto), then quits MFC and re-launches it in the background with `/minimized` — the whole switch is silent and window-less.
 
 | Component | Role |
 |------|------|
-| `fan-hotkey.lua` | Hammerspoon module — hotkey, cycle-list state machine, cooldown polling |
-| `readtemp` (Swift) | Reads Apple Silicon CPU temperature via `IOHIDEventSystemClient` |
-| `Fan Hotkey.app` (SwiftUI) | Configurator GUI — cycle-list editor + per-step expandable params |
+| `fan-hotkey.lua` | Hammerspoon module — hotkey, toggle logic, auto-revert timer |
+| `Fan Hotkey.app` (SwiftUI) | Configurator GUI — all editable options + status checks |
 | `~/.hammerspoon/fan-hotkey-config.json` | Single source of truth — written by the app, read by the lua |
 
 ## Install
 
-### Fresh-Mac one-liner
+### Fresh-Mac one-liner (also installs [clamshell-mode-mac](https://github.com/KrisWonka/clamshell-mode-mac))
 
-Bootstraps everything this project needs from scratch — Xcode CLT, Homebrew, Hammerspoon, Macs Fan Control, then clones and installs:
+Bootstraps Xcode CLT, Homebrew, Hammerspoon, Macs Fan Control, and both projects:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/KrisWonka/fan-hotkey-mac/main/bootstrap.sh | bash
+curl -fsSL https://raw.githubusercontent.com/KrisWonka/clamshell-mode-mac/main/bootstrap.sh | bash
 ```
 
 ### Manual
@@ -50,64 +55,32 @@ cd fan-hotkey-mac
 ```
 
 The installer will:
-1. Compile `readtemp` (Apple Silicon temperature reader) into `~/.hammerspoon/`
-2. Copy `fan-hotkey.lua` to `~/.hammerspoon/`
-3. Append `require("fan-hotkey")` to `~/.hammerspoon/init.lua`
-4. Build `Fan Hotkey.app` and install it to `/Applications/`
-5. Reload Hammerspoon
+1. Copy `fan-hotkey.lua` to `~/.hammerspoon/`
+2. Append `require("fan-hotkey")` to `~/.hammerspoon/init.lua`
+3. Build `Fan Hotkey.app` and install it to `/Applications/`
+4. Reload Hammerspoon
 
 Or grab the prebuilt `.dmg` from [Releases](https://github.com/KrisWonka/fan-hotkey-mac/releases) and drag the app into Applications, then run `./install.sh` to wire up the Hammerspoon side.
 
 ## Usage
 
 ### Hotkey
-Default **`⌃⌥⌘ + 8`** advances one step in your cycle list (rebindable in the GUI). Default cycle: Auto → Full Blast → Cooldown → Auto.
+Default **`⌃⌥⌘ + 8`** toggles Full Blast / Auto (rebindable in the GUI).
 
 ### Configurator (`Fan Hotkey.app`)
 Open via Spotlight. Three tabs:
 
-- **Settings**:
-  - **Cycle list** — add (Auto / Full Blast / Cooldown), delete, reorder with ↑↓; click ▶ to expand a step and rename it / tune its params
-  - **Hotkey** — global hotkey + enable toggle
-  - **Alerts** — on-screen prompt toggle, cooldown-done text, display duration
+- **Settings**: hotkey, alert text, alert duration, auto-revert countdown
 - **Status**: live check of MFC install, Hammerspoon process, current preset
 - **About**: repo link
 
-Hit "Save & Reload" to persist and bounce Hammerspoon.
-
-## Manual config
-
-You can edit `~/.hammerspoon/fan-hotkey-config.json` directly without the GUI, then reload Hammerspoon. Schema:
-
-```json
-{
-  "hotkeyEnabled": true,
-  "hotkeyMods": ["ctrl", "alt", "cmd"],
-  "hotkeyKey": "8",
-  "alertEnabled": true,
-  "alertDuration": 1.2,
-  "alertCooldownDone": "Cooldown done ✓",
-  "cycleSteps": [
-    { "type": "auto", "name": "" },
-    { "type": "fullBlast", "name": "", "autoRevertEnabled": false, "autoRevertSec": 600 },
-    { "type": "cooldown",  "name": "", "cooldownTargetTemp": 40, "cooldownPollSec": 3 }
-  ]
-}
-```
-
-`cycleSteps` is the source of truth for the hotkey cycle. Each step's `type` is one of `auto` / `fullBlast` / `cooldown`. `name` is an optional override of the default display name. Type-specific fields (`autoRevertSec`, `cooldownTargetTemp`, etc.) are read only for matching types.
+Hits "Save & Reload" to persist the config and bounce Hammerspoon.
 
 ## Uninstall
 
 ```bash
 ./uninstall.sh
 ```
-
-## Acknowledgements
-
-- [Macs Fan Control](https://crystalidea.com/macs-fan-control) by Crystalidea — does the actual SMC fan control
-- [Hammerspoon](https://www.hammerspoon.org/) — macOS automation framework powering the hotkey + state machine
-- The `IOHIDEventSystemClient` temperature-reading approach is the same one used by [Stats](https://github.com/exelban/stats), [iStatistica](https://www.imagetasks.com/system-monitor-mac/), and Macs Fan Control itself
 
 ## License
 
