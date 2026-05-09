@@ -17,7 +17,7 @@ macOS global hotkey that cycles [Macs Fan Control](https://crystalidea.com/macs-
 
 ## How it works
 
-Writes MFC's `ActivePreset` via `defaults` to either `Predefined:1` (Full Blast) or `Predefined:0` (Auto), then quits MFC and re-launches it in the background with `/minimized` — the whole switch is silent and window-less.
+Writes MFC's `ActivePreset` via `defaults` to either `Predefined:1` (Full Blast) or `Predefined:0` (Auto), then quits MFC and re-launches it in the background with `/minimized` — the whole switch is silent and window-less. Cooldown steps additionally poll `readtemp` to know when to drop back to Auto.
 
 | Component | Role |
 |------|------|
@@ -75,11 +75,39 @@ Open via Spotlight. Three tabs:
 
 Hit "Save & Reload" to persist and bounce Hammerspoon.
 
+## Manual config
+
+You can edit `~/.hammerspoon/fan-hotkey-config.json` directly without the GUI, then reload Hammerspoon. Schema:
+
+```json
+{
+  "hotkeyEnabled": true,
+  "hotkeyMods": ["ctrl", "alt", "cmd"],
+  "hotkeyKey": "8",
+  "alertEnabled": true,
+  "alertDuration": 1.2,
+  "alertCooldownDone": "Cooldown done ✓",
+  "cycleSteps": [
+    { "type": "auto", "name": "" },
+    { "type": "fullBlast", "name": "", "autoRevertEnabled": false, "autoRevertSec": 600 },
+    { "type": "cooldown",  "name": "", "cooldownTargetTemp": 40, "cooldownPollSec": 3 }
+  ]
+}
+```
+
+`cycleSteps` is the source of truth for the hotkey cycle. Each step's `type` is one of `auto` / `fullBlast` / `cooldown`. `name` is an optional override of the default display name. Type-specific fields (`autoRevertSec`, `cooldownTargetTemp`, etc.) are read only for matching types.
+
 ## Uninstall
 
 ```bash
 ./uninstall.sh
 ```
+
+## Acknowledgements
+
+- [Macs Fan Control](https://crystalidea.com/macs-fan-control) by Crystalidea — does the actual SMC fan control
+- [Hammerspoon](https://www.hammerspoon.org/) — macOS automation framework powering the hotkey + state machine
+- The `IOHIDEventSystemClient` temperature-reading approach is the same one used by [Stats](https://github.com/exelban/stats), [iStatistica](https://www.imagetasks.com/system-monitor-mac/), and Macs Fan Control itself
 
 ## License
 

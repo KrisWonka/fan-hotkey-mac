@@ -56,6 +56,10 @@ cd fan-hotkey-mac
 4. 编译 `Fan Hotkey.app` 装到 `/Applications/`
 5. 重载 Hammerspoon
 
+完成后右上角菜单栏不会有图标（通过快捷键操作），Spotlight 搜「Fan Hotkey」打开 GUI 配置。
+
+或者直接下 [Releases](https://github.com/KrisWonka/fan-hotkey-mac/releases) 里预编好的 `.dmg`，把 `Fan Hotkey.app` 拖进 Applications，再跑一次 `./install.sh` 把 Hammerspoon 那边接好。
+
 ## 使用
 
 ### 快捷键
@@ -73,11 +77,39 @@ Spotlight 搜「Fan Hotkey」打开。三个标签：
 
 保存后自动重载 Hammerspoon。
 
+## 手动改配置
+
+不开 GUI 也能改 —— 编辑 `~/.hammerspoon/fan-hotkey-config.json`，然后 reload Hammerspoon。Schema：
+
+```json
+{
+  "hotkeyEnabled": true,
+  "hotkeyMods": ["ctrl", "alt", "cmd"],
+  "hotkeyKey": "8",
+  "alertEnabled": true,
+  "alertDuration": 1.2,
+  "alertCooldownDone": "Cooldown done ✓",
+  "cycleSteps": [
+    { "type": "auto", "name": "" },
+    { "type": "fullBlast", "name": "", "autoRevertEnabled": false, "autoRevertSec": 600 },
+    { "type": "cooldown",  "name": "", "cooldownTargetTemp": 40, "cooldownPollSec": 3 }
+  ]
+}
+```
+
+`cycleSteps` 是快捷键循环的唯一来源。每档的 `type` 必须是 `auto` / `fullBlast` / `cooldown` 之一。`name` 是可选的显示名覆盖（空串 = 用类型默认名）。类型专属字段（`autoRevertSec` / `cooldownTargetTemp` 等）只在对应 type 下生效。
+
 ## 卸载
 
 ```bash
 ./uninstall.sh
 ```
+
+## 致谢
+
+- [Macs Fan Control](https://crystalidea.com/macs-fan-control)（Crystalidea 出品）—— 真正干 SMC 风扇控制的活
+- [Hammerspoon](https://www.hammerspoon.org/) —— macOS 自动化框架，撑起快捷键 + 状态机
+- `IOHIDEventSystemClient` 温度读取的思路参考 [Stats](https://github.com/exelban/stats)、[iStatistica](https://www.imagetasks.com/system-monitor-mac/) 和 MFC 自身
 
 ## License
 
